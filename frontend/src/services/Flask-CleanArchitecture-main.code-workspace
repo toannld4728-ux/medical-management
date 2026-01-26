@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"name": "Flask-CleanArchitecture-main",
+			"path": "../../.."
+		},
+		{
+			"name": "frontend",
+			"path": "../../../../../../../Public/Code React/frontend"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "frontend"
+	}
+}

@@ -1,0 +1,11 @@
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from infrastructure.databases.base import Base
+
+class RoleModel(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+
+    users = relationship("UserModel", back_populates="role")
