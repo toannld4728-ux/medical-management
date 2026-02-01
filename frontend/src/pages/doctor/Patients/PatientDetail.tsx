@@ -25,6 +25,17 @@ export default function PatientDetail() {
   const { patientId } = useParams();
   const navigate = useNavigate();
 
+  interface Image {
+    id: number;
+    url: string;
+  }
+
+  interface Diagnosis {
+    id: number;
+    result: string;
+    created_at: string;
+  }
+
   const [analyses, setAnalyses] = useState<DoctorCase[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] =
     useState<DoctorCase | null>(null);
@@ -32,6 +43,9 @@ export default function PatientDetail() {
   const [diagnosis, setDiagnosis] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [images, setImages] = useState<Image[]>([]);
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
 
   // ================= LOAD CASES =================
   useEffect(() => {
@@ -54,6 +68,8 @@ export default function PatientDetail() {
 
       setDiagnosis(data.notes || "");
       setConfirmed(status === "reviewed");
+      setImages(data.images || []);
+      setDiagnoses(data.diagnoses || []);
     } catch (err) {
       console.error("Load history failed", err);
     }
@@ -67,7 +83,11 @@ export default function PatientDetail() {
       setLoading(true);
 
       // TODO: lấy doctor_id từ auth context
-      const DOCTOR_ID = selectedAnalysis.doctor_id || 1;
+      const DOCTOR_ID = localStorage.getItem("user")
+        ? JSON.parse(
+            localStorage.getItem("user") || "{}"
+          ).id
+        : null;
 
       await confirmDiagnosis(
         selectedAnalysis.record_id,
@@ -78,6 +98,8 @@ export default function PatientDetail() {
       alert("Đã xác nhận kết quả!");
 
       await loadCases();
+      // reload history so diagnoses list and images are refreshed
+      await loadHistory(selectedAnalysis.record_id, "reviewed");
       setConfirmed(true);
     } catch (err) {
       console.error(err);
@@ -88,11 +110,14 @@ export default function PatientDetail() {
   };
 
   // ================= FILTER BY PATIENT =================
+  console.log("Patient ID:", patientId);
   const filteredAnalyses = patientId
     ? analyses.filter(
         (a) => String(a.patient_id) === patientId
       )
     : analyses;
+
+  console.log("Filtered Analyses:", filteredAnalyses);  
 
   return (
     <div className="space-y-6">
@@ -168,9 +193,40 @@ export default function PatientDetail() {
               </h3>
             </div>
 
-            {/* Placeholder AI */}
-            <div className="p-6 border rounded-lg text-center text-gray-500">
-              (Hiển thị ảnh võng mạc + AI chart sau)
+            {/* Retina images + diagnosis history */}
+            <div className="p-6 border rounded-lg text-gray-500">
+              {images && images.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {images.map((img) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt={`Retina ${img.id}`}
+                      className="w-full h-48 object-cover rounded"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  (Không có ảnh võng mạc để hiển thị)
+                </div>
+              )}
+
+              <div className="mt-4 text-left">
+                <h5 className="font-semibold mb-2">Lịch sử chẩn đoán</h5>
+                {diagnoses && diagnoses.length > 0 ? (
+                  <ul className="space-y-2 text-sm">
+                    {diagnoses.map((d) => (
+                      <li key={d.id} className="border rounded p-2">
+                        <div className="text-gray-700">{d.result}</div>
+                        <div className="text-gray-400 text-xs mt-1">{new Date(d.created_at).toLocaleString()}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-400">Chưa có chẩn đoán trước</div>
+                )}
+              </div>
             </div>
 
             {/* Doctor confirm */}

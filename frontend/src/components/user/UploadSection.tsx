@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, AlertCircle, CheckCircle, Image as ImageIcon, Eye } from 'lucide-react';
+import { api } from "../../services/api";  // for uploading files to backend
 
 interface UploadedFile {
   id: string;
@@ -27,42 +28,58 @@ const UploadSection = () => {
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
 
-    // Simulate upload and processing
+    // start upload for each new file
     newFiles.forEach((uploadedFile) => {
-      simulateUpload(uploadedFile.id);
+      uploadImage(uploadedFile);
     });
   };
 
-  const simulateUpload = (fileId: string) => {
-    // Simulate upload progress
-    let progress = 0;
-    const uploadInterval = setInterval(() => {
-      progress += 10;
+  const uploadImage = async (fileObj: UploadedFile) => {
+    // set initial uploading state
+    setUploadedFiles((prev) =>
+      prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'uploading', progress: 1 } : f))
+    );
+
+    try {
+      const form = new FormData();
+      form.append('file', fileObj.file);
+
+      const res = await api.post('/medical-images/', form, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadedFiles((prev) =>
+              prev.map((f) => (f.id === fileObj.id ? { ...f, progress: percent } : f))
+            );
+          }
+        },
+      });
+
+      console.log('Upload response:', res.data);
+
+      // mark as processing
       setUploadedFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileId ? { ...f, progress } : f
-        )
+        prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'processing', progress: 100 } : f))
       );
 
-      if (progress >= 100) {
-        clearInterval(uploadInterval);
-        // Start processing
+      // simulate AI processing completion after short delay
+      setTimeout(() => {
         setUploadedFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId ? { ...f, status: 'processing' } : f
-          )
+          prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'completed', progress: 100 } : f))
         );
+      }, 1500);
 
-        // Simulate AI processing
-        setTimeout(() => {
-          setUploadedFiles((prev) =>
-            prev.map((f) =>
-              f.id === fileId ? { ...f, status: 'completed', progress: 100 } : f
-            )
-          );
-        }, 3000);
-      }
-    }, 300);
+      return res.data;
+    } catch (err) {
+      console.error('Upload failed', err);
+      setUploadedFiles((prev) =>
+        prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'error' } : f))
+      );
+      return null;
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {

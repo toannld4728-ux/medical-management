@@ -9,7 +9,7 @@ from api.controllers.ai_controller import bp as ai_bp
 from api.controllers.doctor_controller import bp as doctor_bp
 from api.controllers.history_controller import bp as history_bp
 from api.controllers.retina_controller import bp as retina_bp
-
+from api.controllers.medical_image_controller import bp as medical_image_bp
 # ================= CORE =================
 from api.middleware import middleware
 from config import Config
@@ -39,7 +39,7 @@ def create_app():
     app.register_blueprint(doctor_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(retina_bp)
-
+    app.register_blueprint(medical_image_bp)
     # ================= DATABASE =================
     Base.metadata.create_all(bind=engine)
 

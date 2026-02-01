@@ -9,3 +9,16 @@ export const getUserHistory = async (recordId: number) => {
 
   return res.data;
 };
+
+export const uploadMedicalImage = async (formData: FormData) => {
+  const res = await axios.post(
+    `${API_BASE}/user/upload-medical-image`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+  return res.data;
+};

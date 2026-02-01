@@ -23,8 +23,8 @@ export function AnalysisHistory({ onSelectAnalysis, limit }: AnalysisHistoryProp
       id: 'AN-2024-012',
       date: '2024-12-18',
       eye: 'both',
-      status: 'pending',
       riskLevel: 'low',
+      status: 'pending',
       findings: ['Đang xử lý'],
       doctor: undefined
     },

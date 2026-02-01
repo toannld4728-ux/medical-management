@@ -22,3 +22,4 @@ def create_record():
     )
 
     return jsonify({"id": record.id})
+

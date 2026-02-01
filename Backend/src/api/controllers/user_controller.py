@@ -15,3 +15,27 @@ def list_users():
         {"id": u.id, "email": u.email, "role_id": u.role_id}
         for u in users
     ])
+
+
+#upload image endpoint
+@bp.route("/<int:user_id>/images", methods=["GET"])
+def list_user_images(user_id):
+    session = get_session()
+    repo = UserRepository(session)
+    user = repo.get_by_id(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    images = [
+        {
+            "id": img.id,
+            "image_url": img.image_url,
+            "uploaded_at": img.uploaded_at.isoformat()
+        }
+        for img in user.images
+    ]
+
+    
+
+    return jsonify(images)
