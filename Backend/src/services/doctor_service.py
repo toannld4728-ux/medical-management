@@ -17,16 +17,15 @@ class DoctorService:
 
     # ================= CONFIRM =================
     @staticmethod
-    def confirm_case(record_id, doctor_user_id, result):
+    def confirm_case(record_id, doctor_id, result):
 
         session = SessionLocal()
 
         try:
-            # 🔥 tìm doctor theo USER ID
             doctor = (
                 session
                 .query(DoctorModel)
-                .filter(DoctorModel.user_id == doctor_user_id)
+                .filter(DoctorModel.id == doctor_id)
                 .first()
             )
 
@@ -40,10 +39,16 @@ class DoctorService:
             if not record:
                 return None
 
-            # assign doctor.id vào record
+            # ================= UPDATE RECORD =================
             record.doctor_id = doctor.id
             record.notes = result
             record.status = "reviewed"
+
+            # ================= SAVE DIAGNOSIS HISTORY 🔥 =================
+            repo.add_diagnosis(
+                record_id=record.id,
+                result=result
+            )
 
             session.commit()
 

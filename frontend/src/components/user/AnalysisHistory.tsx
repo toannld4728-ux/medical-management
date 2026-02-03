@@ -1,121 +1,123 @@
-import React from 'react';
-import { Eye, Calendar, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Eye, Calendar, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import axios from "axios";
 
 interface AnalysisHistoryProps {
   onSelectAnalysis: (id: string) => void;
   limit?: number;
 }
 
-interface AnalysisRecord {
-  id: string;
-  date: string;
-  eye: 'left' | 'right' | 'both';
-  status: 'completed' | 'pending' | 'reviewed';
-  riskLevel: 'low' | 'medium' | 'high';
-  findings: string[];
-  doctor?: string;
+interface RecordItem {
+  id: number;
+  status: string;
+  created_at: string;
+  notes: string | null;
 }
 
 export function AnalysisHistory({ onSelectAnalysis, limit }: AnalysisHistoryProps) {
-  // Mock data
-  const analyses: AnalysisRecord[] = [
-    {
-      id: 'AN-2024-012',
-      date: '2024-12-18',
-      eye: 'both',
-      riskLevel: 'low',
-      status: 'pending',
-      findings: ['Đang xử lý'],
-      doctor: undefined
-    },
-    {
-      id: 'AN-2024-011',
-      date: '2024-12-15',
-      eye: 'both',
-      status: 'reviewed',
-      riskLevel: 'low',
-      findings: ['Không phát hiện bất thường', 'Mạch máu võng mạc ổn định'],
-      doctor: 'BS. Trần Thị Bình'
-    },
-    {
-      id: 'AN-2024-010',
-      date: '2024-12-10',
-      eye: 'right',
-      status: 'reviewed',
-      riskLevel: 'medium',
-      findings: ['Tăng áp lực mạch máu nhẹ', 'Đề xuất theo dõi'],
-      doctor: 'BS. Trần Thị Bình'
-    },
-    {
-      id: 'AN-2024-009',
-      date: '2024-12-05',
-      eye: 'both',
-      status: 'reviewed',
-      riskLevel: 'low',
-      findings: ['Không có dấu hiệu bệnh lý'],
-      doctor: 'BS. Lê Văn Cường'
-    },
-    {
-      id: 'AN-2024-008',
-      date: '2024-11-28',
-      eye: 'left',
-      status: 'reviewed',
-      riskLevel: 'low',
-      findings: ['Tình trạng bình thường'],
-      doctor: 'BS. Trần Thị Bình'
-    },
-    {
-      id: 'AN-2024-007',
-      date: '2024-11-20',
-      eye: 'both',
-      status: 'reviewed',
-      riskLevel: 'low',
-      findings: ['Khám định kỳ - không vấn đề'],
-      doctor: 'BS. Trần Thị Bình'
+  const [records, setRecords] = useState<RecordItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ⚠️ TEST CỨNG — bỏ localStorage trước
+  const patientId = "2";
+
+  useEffect(() => {
+    console.log("History mounted");
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    try {
+      console.log("Calling history API...");
+
+      setLoading(true);
+      setError(null);
+
+      const res = await axios.get(
+        "http://127.0.0.1:9999/api/user/history",
+        {
+          params: { patient_id: patientId },
+          timeout: 8000,
+        }
+      );
+
+      console.log("History response:", res.data);
+
+      let data: RecordItem[] = res.data.records || [];
+
+      if (limit) data = data.slice(0, limit);
+
+      setRecords(data);
+    } catch (err: any) {
+      console.error("Fetch history failed:", err);
+
+      setError(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Không gọi được API"
+      );
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const displayedAnalyses = limit ? analyses.slice(0, limit) : analyses;
-
-  const getRiskBadge = (level: string) => {
-    const styles = {
-      low: 'bg-green-100 text-green-700',
-      medium: 'bg-orange-100 text-orange-700',
-      high: 'bg-red-100 text-red-700'
-    };
-    const labels = {
-      low: 'Thấp',
-      medium: 'Trung bình',
-      high: 'Cao'
-    };
-    return (
-      <span className={`px-2 py-1 rounded text-xs ${styles[level as keyof typeof styles]}`}>
-        {labels[level as keyof typeof labels]}
-      </span>
-    );
   };
 
-  const getStatusBadge = (status: string) => {
-    const config = {
-      completed: { label: 'Hoàn thành', icon: CheckCircle, color: 'text-blue-600' },
-      pending: { label: 'Đang xử lý', icon: Clock, color: 'text-orange-600' },
-      reviewed: { label: 'Đã xem xét', icon: CheckCircle, color: 'text-green-600' }
+  const renderStatus = (status: string) => {
+    const map: Record<string, any> = {
+      pending: { label: "Đang xử lý", icon: Clock, color: "text-orange-600" },
+      ai_done: { label: "AI xong", icon: Clock, color: "text-blue-600" },
+      reviewed: {
+        label: "Đã có bác sĩ",
+        icon: CheckCircle,
+        color: "text-green-600",
+      },
     };
-    const { label, icon: Icon, color } = config[status as keyof typeof config];
+
+    const config = map[status] || map.pending;
+    const Icon = config.icon;
+
     return (
-      <span className={`flex items-center gap-1 text-sm ${color}`}>
+      <span className={`flex items-center gap-1 text-sm ${config.color}`}>
         <Icon className="w-4 h-4" />
-        {label}
+        {config.label}
       </span>
     );
   };
+
+  // ================= UI STATES =================
+
+  if (loading) {
+    return (
+      <p className="text-sm text-gray-500">
+        Đang tải lịch sử...
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-600 flex items-center gap-2">
+        <AlertTriangle size={18} />
+        {error}
+      </div>
+    );
+  }
+
+  if (!records.length) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <Eye className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p>Không có dữ liệu lịch sử</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {displayedAnalyses.map((analysis) => (
+      {records.map((record) => (
         <div
-          key={analysis.id}
-          onClick={() => onSelectAnalysis(analysis.id)}
+          key={record.id}
+          onClick={() => onSelectAnalysis(record.id.toString())}
           className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
         >
           <div className="flex items-start justify-between mb-3">
@@ -123,49 +125,33 @@ export function AnalysisHistory({ onSelectAnalysis, limit }: AnalysisHistoryProp
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <Eye className="w-5 h-5 text-blue-600" />
               </div>
+
               <div>
-                <p className="text-sm text-gray-500">{analysis.id}</p>
+                <p className="text-sm text-gray-500">
+                  Record #{record.id}
+                </p>
+
                 <div className="flex items-center gap-2 mt-1">
                   <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm">{new Date(analysis.date).toLocaleDateString('vi-VN')}</span>
+                  <span className="text-sm">
+                    {new Date(record.created_at).toLocaleDateString("vi-VN")}
+                  </span>
                 </div>
               </div>
             </div>
+
             <div className="text-right">
-              {getStatusBadge(analysis.status)}
-              <div className="mt-2">
-                {getRiskBadge(analysis.riskLevel)}
-              </div>
+              {renderStatus(record.status)}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Eye className="w-4 h-4" />
-              {analysis.eye === 'both' ? 'Cả hai mắt' : analysis.eye === 'left' ? 'Mắt trái' : 'Mắt phải'}
+          {record.notes && (
+            <div className="text-sm text-gray-600">
+              Ghi chú: {record.notes}
             </div>
-            
-            <div className="text-sm">
-              {analysis.findings.map((finding, idx) => (
-                <div key={idx} className="text-gray-600">• {finding}</div>
-              ))}
-            </div>
-
-            {analysis.doctor && (
-              <div className="text-sm text-gray-500 pt-2 border-t">
-                Xem xét bởi: {analysis.doctor}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       ))}
-
-      {displayedAnalyses.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <Eye className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>Chưa có phân tích nào</p>
-        </div>
-      )}
     </div>
   );
 }

@@ -27,6 +27,14 @@ class MedicalRecordRepository:
             .first()
         )
 
+    def get_by_patient(self, patient_id):
+        return (
+            self.session.query(MedicalRecordModel)
+            .filter_by(patient_id=patient_id)
+            .order_by(MedicalRecordModel.created_at.desc())
+            .all()
+        )
+
     # ================= FOR DOCTOR =================
     def get_available_for_doctors(self):
         return (
@@ -69,6 +77,9 @@ class MedicalRecordRepository:
             record_id=record_id,
             result=result
         )
+
+        record = self.get_by_id(record_id)
+        record.status = "reviewed"
 
         self.session.add(diagnosis)
         self.session.commit()

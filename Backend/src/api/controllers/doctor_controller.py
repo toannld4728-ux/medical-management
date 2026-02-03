@@ -79,15 +79,16 @@ def confirm_case(record_id):
 
     data = request.json or {}
 
-    doctor_user_id = data.get("doctor_id")
+    # 👉 doctor_id = doctors.id
+    doctor_id = data.get("doctor_id")
     result = data.get("result")
 
-    if not doctor_user_id or not result:
+    if not doctor_id or not result:
         return jsonify({"error": "doctor_id and result required"}), 400
 
     record = DoctorService.confirm_case(
         record_id=record_id,
-        doctor_user_id=doctor_user_id,
+        doctor_id=doctor_id,
         result=result
     )
 
@@ -99,5 +100,6 @@ def confirm_case(record_id):
 
     return jsonify({
         "message": "Confirmed",
-        "record_id": record_id
-    })
+        "record_id": record_id,
+        "doctor_id": doctor_id
+    }), 200

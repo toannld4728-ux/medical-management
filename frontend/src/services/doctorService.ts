@@ -1,6 +1,4 @@
-import axios from "axios";
-
-const API_BASE = "http://127.0.0.1:9999/api";
+import { api } from "./api";
 
 export interface DoctorCase {
   record_id: number;
@@ -11,7 +9,7 @@ export interface DoctorCase {
 
 // ================= LIST CASES =================
 export const getDoctorCases = async (): Promise<DoctorCase[]> => {
-  const res = await axios.get(`${API_BASE}/doctor/cases`);
+  const res = await api.get("/doctor/cases");
   return res.data;
 };
 
@@ -21,13 +19,10 @@ export const confirmDiagnosis = async (
   doctorId: number,
   result: string
 ) => {
-  const res = await axios.post(
-    `${API_BASE}/doctor/confirm/${recordId}`,
-    {
-      doctor_id: doctorId,
-      result,
-    }
-  );
+  const res = await api.post(`/doctor/confirm/${recordId}`, {
+    doctor_id: doctorId,
+    result,
+  });
 
   return res.data;
 };

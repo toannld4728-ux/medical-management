@@ -13,17 +13,27 @@ class AIService:
         if not image:
             return None
 
-        # fake AI result
+        # ================= AI MOCK =================
         comment, confidence = random_ai_result()
 
-        # save AI diagnosis
-        ai = self.image_repo.save_ai_result(
+        # ================= SAVE RAW AI =================
+        self.image_repo.save_ai_result(
             image_id=image_id,
             confidence=confidence,
             raw_output=comment
         )
 
-        # update medical record so doctor can see
-        self.record_repo.update_status(image.record_id, "ai_done")
+        # ================= SAVE INTO RECORD NOTES 🔥 =================
+        record = self.record_repo.get_by_id(image.record_id)
 
-        return ai
+        if record:
+            record.notes = comment
+            self.record_repo.session.commit()
+
+        # ================= MARK READY FOR DOCTOR =================
+        self.record_repo.update_status(
+            image.record_id,
+            "ai_done"
+        )
+
+        return comment

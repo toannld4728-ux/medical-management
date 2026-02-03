@@ -1,11 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  User,
-  Eye,
-  CheckCircle,
-} from "lucide-react";
+import { ArrowLeft, User, Eye, CheckCircle } from "lucide-react";
 
 import {
   getDoctorCases,
@@ -21,20 +16,22 @@ interface DoctorCase {
   doctor_id: number | null;
 }
 
+interface Image {
+  id: number;
+  url: string;
+}
+
+interface Diagnosis {
+  id: number;
+  result: string;
+  created_at: string;
+}
+
+const BACKEND_URL = "http://127.0.0.1:9999";
+
 export default function PatientDetail() {
   const { patientId } = useParams();
   const navigate = useNavigate();
-
-  interface Image {
-    id: number;
-    url: string;
-  }
-
-  interface Diagnosis {
-    id: number;
-    result: string;
-    created_at: string;
-  }
 
   const [analyses, setAnalyses] = useState<DoctorCase[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] =
@@ -46,6 +43,9 @@ export default function PatientDetail() {
 
   const [images, setImages] = useState<Image[]>([]);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // ================= LOAD CASES =================
   useEffect(() => {
@@ -66,10 +66,18 @@ export default function PatientDetail() {
     try {
       const data = await getUserHistory(recordId);
 
-      setDiagnosis(data.notes || "");
-      setConfirmed(status === "reviewed");
       setImages(data.images || []);
       setDiagnoses(data.diagnoses || []);
+
+      if (data.notes) {
+        setDiagnosis(data.notes);
+      } else if (data.diagnoses?.length > 0) {
+        setDiagnosis(data.diagnoses[0].result);
+      } else {
+        setDiagnosis("");
+      }
+
+      setConfirmed(status === "reviewed");
     } catch (err) {
       console.error("Load history failed", err);
     }
@@ -79,45 +87,61 @@ export default function PatientDetail() {
   const handleConfirm = async () => {
     if (!selectedAnalysis) return;
 
+    setError(null);
+    setSuccess(null);
+
     try {
       setLoading(true);
 
-      // TODO: lấy doctor_id từ auth context
-      const DOCTOR_ID = localStorage.getItem("user")
-        ? JSON.parse(
-            localStorage.getItem("user") || "{}"
-          ).id
-        : null;
+      const userStr = localStorage.getItem("user");
+
+      if (!userStr) {
+        setError("Không tìm thấy user trong localStorage");
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+
+      // 🔥 FIX CUỐI: Ưu tiên doctor_id, fallback id
+      const doctorId =
+        user.doctor_id ?? user.id;
+
+      if (!doctorId) {
+        setError("Không tìm thấy doctor_id");
+        return;
+      }
+
+      console.log("CONFIRM WITH doctorId =", doctorId);
 
       await confirmDiagnosis(
         selectedAnalysis.record_id,
-        DOCTOR_ID,
+        doctorId,
         diagnosis
       );
 
-      alert("Đã xác nhận kết quả!");
+      setSuccess("Đã xác nhận kết quả!");
 
       await loadCases();
-      // reload history so diagnoses list and images are refreshed
       await loadHistory(selectedAnalysis.record_id, "reviewed");
+
       setConfirmed(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Xác nhận thất bại");
+
+      const msg =
+        err?.response?.data?.error ||
+        "Xác nhận thất bại";
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= FILTER BY PATIENT =================
-  console.log("Patient ID:", patientId);
+  // ================= FILTER =================
   const filteredAnalyses = patientId
-    ? analyses.filter(
-        (a) => String(a.patient_id) === patientId
-      )
-    : analyses;
-
-  console.log("Filtered Analyses:", filteredAnalyses);  
+    ? analyses.filter((a) => String(a.patient_id) === patientId)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -161,8 +185,7 @@ export default function PatientDetail() {
                   loadHistory(a.record_id, a.status);
                 }}
                 className={`w-full text-left p-4 rounded-lg border ${
-                  selectedAnalysis?.record_id ===
-                  a.record_id
+                  selectedAnalysis?.record_id === a.record_id
                     ? "border-green-600 bg-green-50"
                     : "hover:bg-gray-50"
                 }`}
@@ -187,89 +210,69 @@ export default function PatientDetail() {
         {/* Detail */}
         {selectedAnalysis ? (
           <div className="md:col-span-2 bg-white border rounded-xl p-6 space-y-6">
-            <div>
-              <h3 className="text-lg mb-1">
-                Record #{selectedAnalysis.record_id}
-              </h3>
+            <h3 className="text-lg">
+              Record #{selectedAnalysis.record_id}
+            </h3>
+
+            {/* Images */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {images.map((img) => (
+                <img
+                  key={img.id}
+                  src={
+                    img.url.startsWith("http")
+                      ? img.url
+                      : `${BACKEND_URL}/${img.url}`
+                  }
+                  className="rounded"
+                />
+              ))}
             </div>
 
-            {/* Retina images + diagnosis history */}
-            <div className="p-6 border rounded-lg text-gray-500">
-              {images && images.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {images.map((img) => (
-                    <img
-                      key={img.id}
-                      src={img.url}
-                      alt={`Retina ${img.id}`}
-                      className="w-full h-48 object-cover rounded"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-400 py-8">
-                  (Không có ảnh võng mạc để hiển thị)
-                </div>
-              )}
-
-              <div className="mt-4 text-left">
-                <h5 className="font-semibold mb-2">Lịch sử chẩn đoán</h5>
-                {diagnoses && diagnoses.length > 0 ? (
-                  <ul className="space-y-2 text-sm">
-                    {diagnoses.map((d) => (
-                      <li key={d.id} className="border rounded p-2">
-                        <div className="text-gray-700">{d.result}</div>
-                        <div className="text-gray-400 text-xs mt-1">{new Date(d.created_at).toLocaleString()}</div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-gray-400">Chưa có chẩn đoán trước</div>
-                )}
+            {/* STATUS */}
+            {error && (
+              <div className="bg-red-100 text-red-700 p-3 rounded">
+                {error}
               </div>
-            </div>
+            )}
+
+            {success && (
+              <div className="bg-green-100 text-green-700 p-3 rounded">
+                {success}
+              </div>
+            )}
 
             {/* Doctor confirm */}
-            <div className="border-t pt-6 space-y-4">
-              <h4 className="text-lg font-semibold">
-                Xác nhận của bác sĩ
-              </h4>
-
+            <div className="border-t pt-4 space-y-3">
               <textarea
                 value={diagnosis}
-                onChange={(e) =>
-                  setDiagnosis(e.target.value)
-                }
-                rows={4}
+                onChange={(e) => setDiagnosis(e.target.value)}
                 disabled={confirmed}
-                className="w-full border rounded-lg p-3"
-                placeholder="Nhập chẩn đoán..."
+                rows={4}
+                className="w-full border rounded p-3"
+                placeholder="AI đã gợi ý kết luận — bác sĩ có thể chỉnh sửa..."
               />
 
               {!confirmed ? (
                 <button
-                  disabled={loading}
                   onClick={handleConfirm}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  disabled={loading}
+                  className="bg-green-600 text-white px-5 py-2 rounded disabled:opacity-50"
                 >
-                  {loading
-                    ? "Đang gửi..."
-                    : "Xác nhận kết quả"}
+                  {loading ? "Đang gửi..." : "Xác nhận"}
                 </button>
               ) : (
-                <div className="flex items-center gap-2 text-green-600 font-medium">
+                <div className="text-green-600 flex gap-2">
                   <CheckCircle className="w-5 h-5" />
-                  Đã được bác sĩ xác nhận
+                  Đã xác nhận
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="md:col-span-2 bg-white border rounded-xl p-12 flex justify-center items-center text-gray-500">
-            <div className="text-center">
-              <Eye className="w-14 h-14 mx-auto mb-3 opacity-50" />
-              <p>Chọn một bản ghi để xem chi tiết</p>
-            </div>
+          <div className="md:col-span-2 bg-white border rounded-xl p-12 text-center text-gray-500">
+            <Eye className="mx-auto mb-3" />
+            Chọn một bản ghi
           </div>
         )}
       </div>
